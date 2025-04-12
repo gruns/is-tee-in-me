@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='utf-8'>
+    <title>Is TEE in Me? - Check if a CPU has a Trusted Execution Environment (TEE) or not</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+            background-color: #121212;
+            color: #f1f1f1;
+        }
+        a {
+            color: #90caf9;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .search-box {
+            text-align: center;
+            margin-bottom: 2em;
+        }
+        .search-box h1 {
+            font-size: 2em;
+            margin-bottom: 0.5em;
+        }
+        input[type='text'] {
+            width: 60%;
+            padding: 1em;
+            font-size: 1.2em;
+            background-color: #1e1e1e;
+            color: #f1f1f1;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+        .result {
+            margin-top: 1em;
+            font-size: 1.5em;
+            font-weight: bold;
+            height: 2em;
+        }
+        .columns {
+            display: flex;
+            gap: 2em;
+        }
+        .column {
+            flex: 1;
+        }
+        h2 {
+            border-bottom: 2px solid #444;
+        }
+        ul {
+            padding-left: 1.2em;
+        }
+        li {
+            margin-bottom: 0.3em;
+        }
+        .highlight {
+            background-color: #fdd835;
+            color: #000;
+            font-weight: bold;
+        }
+        .positive {
+            color: #66bb6a;
+        }
+        .negative {
+            color: #ef5350;
+        }
+    </style>
+</head>
+<body>
+    <div class='search-box'>
+        <h1>Is <a href='https://en.wikipedia.org/wiki/Trusted_execution_environment' 
+            target='_blank'>TEE</a> In Me?</h1>
+        <input type='text' id='cpuSearch' placeholder='Type or paste a CPU name...'>
+        <div id='result' class='result'></div>
+    </div>
+    <div class='columns'>
+        <div class='column'>
+            <h2>Intel (TDX)</h2>
+            <ul id='intelList'></ul>
+        </div>
+        <div class='column'>
+            <h2>AMD (SEV-SNP)</h2>
+            <ul id='amdList'></ul>
+        </div>
+    </div>
+
+    <script>
+        const intelCpus = [
+            'Xeon Platinum 8452Y', 'Xeon Platinum 8460H', 'Xeon Platinum 8460Y+',
+            'Xeon Platinum 8462Y+', 'Xeon Platinum 8468', 'Xeon Platinum 8468H',
+            'Xeon Platinum 8468V', 'Xeon Platinum 8470', 'Xeon Platinum 8470N',
+            'Xeon Platinum 8470Q', 'Xeon Platinum 8471N', 'Xeon Platinum 8480+',
+            'Xeon Platinum 8490H', 'Xeon Gold 5411N', 'Xeon Gold 5412U',
+            'Xeon Gold 5415+', 'Xeon Gold 5416S', 'Xeon Gold 5418N',
+            'Xeon Gold 5418Y', 'Xeon Gold 5420+', 'Xeon Gold 5423N',
+            'Xeon Gold 5433N', 'Xeon Gold 6414U', 'Xeon Gold 6416H',
+            'Xeon Gold 6418H', 'Xeon Gold 6421N', 'Xeon Gold 6426Y',
+            'Xeon Gold 6428N', 'Xeon Gold 6430', 'Xeon Gold 6434',
+            'Xeon Gold 6434H', 'Xeon Gold 6438M', 'Xeon Gold 6438N',
+            'Xeon Gold 6438Y+', 'Xeon Gold 6442Y', 'Xeon Gold 6444Y',
+            'Xeon Gold 6448H', 'Xeon Gold 6448Y', 'Xeon Gold 6454S',
+            'Xeon Gold 6458Q', 'Xeon Silver 4410T', 'Xeon Silver 4410Y',
+            'Xeon Silver 4416+', 'Xeon Gold 5515+', 'Xeon Gold 5520+'
+        ]
+
+        const amdCpus = [
+            'EPYC 7313', 'EPYC 7313P', 'EPYC 7343', 'EPYC 7413', 'EPYC 7443',
+            'EPYC 7443P', 'EPYC 7453', 'EPYC 7513', 'EPYC 7543', 'EPYC 7543P',
+            'EPYC 7643', 'EPYC 7663', 'EPYC 7713', 'EPYC 7713P', 'EPYC 7763',
+            'EPYC 72F3', 'EPYC 73F3', 'EPYC 74F3', 'EPYC 75F3', 'EPYC 7373X',
+            'EPYC 7473X', 'EPYC 7573X', 'EPYC 7773X'
+        ]
+
+        const intelList = document.getElementById('intelList')
+        const amdList = document.getElementById('amdList')
+        const resultBox = document.getElementById('result')
+
+        function createIntelLink(cpu) {
+            const base = 'https://www.intel.com/content/www/us/en/products/sku'
+            const skuStub = cpu.toLowerCase().replace(/\s+/g, '-')
+                                        .replace(/[+]/g, 'plus')
+            return `${base}/intel-${skuStub}-processor/specifications.html`
+        }
+
+        function createAmdLink(cpu) {
+            const base = 'https://www.amd.com/en/products/processors/server/epyc/7003-series/'
+            const skuStub = cpu.toLowerCase().replace(/\s+/g, '-')
+                                        .replace(/[+]/g, '')
+            return `${base}${skuStub}.html`
+        }
+
+        function renderList(list, data, linkFn) {
+            list.innerHTML = ''
+            data.forEach(cpu => {
+                const li = document.createElement('li')
+                const a = document.createElement('a')
+                a.href = linkFn(cpu)
+                a.textContent = cpu
+                a.target = '_blank'
+                li.appendChild(a)
+                list.appendChild(li)
+            })
+        }
+
+        function highlightMatches(value) {
+            const lower = value.toLowerCase()
+            let matchFound = false
+
+            document.querySelectorAll('li').forEach(li => {
+                const text = li.textContent.toLowerCase()
+                const match = text.includes(lower) && lower.length > 0
+                li.classList.toggle('highlight', match)
+                if (match) matchFound = true
+            })
+
+            if (lower.length >= 4) {
+                resultBox.innerHTML = matchFound
+                    ? '<span class="positive">✅ TEE supported</span>'
+                    : '<span class="negative">❌ No TEE</span>'
+            } else {
+                resultBox.innerHTML = ''
+            }
+        }
+
+        renderList(intelList, intelCpus, createIntelLink)
+        renderList(amdList, amdCpus, createAmdLink)
+
+        const input = document.getElementById('cpuSearch')
+        input.focus()
+        input.addEventListener('input', e => {
+            highlightMatches(e.target.value)
+        })
+    </script>
+</body>
+</html>
